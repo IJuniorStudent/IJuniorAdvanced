@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Incapsulation", "Incapsulation.csproj", "{12EF35D1-299A-423D-933F-88F884F2C87A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{12EF35D1-299A-423D-933F-88F884F2C87A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12EF35D1-299A-423D-933F-88F884F2C87A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12EF35D1-299A-423D-933F-88F884F2C87A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12EF35D1-299A-423D-933F-88F884F2C87A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
