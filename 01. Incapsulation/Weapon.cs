@@ -3,7 +3,7 @@
 public class Weapon
 {
     private readonly int _damage;
-    private readonly int _bullets;
+    private int _bullets;
     
     public Weapon(int damage, int bullets)
     {
@@ -21,5 +21,6 @@ public class Weapon
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(_bullets, nameof(_bullets));
         
         damageable.TakeDamage(_damage);
+        _bullets--;
     }
 }
