@@ -9,9 +9,9 @@ public class Bot
         _weapon = weapon;
     }
     
-    public void OnSeePlayer(IAttackableTarget target)
+    public void OnSeePlayer(IDamageable target)
     {
-        if (_weapon.HasBullets && target.IsAlive())
+        if (_weapon.HasBullets && target.IsAlive)
             _weapon.Fire(target);
     }
 }

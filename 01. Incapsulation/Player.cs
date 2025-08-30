@@ -1,6 +1,6 @@
 ﻿namespace Incapsulation;
 
-public class Player : IAttackableTarget
+public class Player : IDamageable
 {
     private int _health;
     
@@ -13,11 +13,8 @@ public class Player : IAttackableTarget
     
     public event Action<int, int>? HealthChanged;
     
-    public bool IsAlive()
-    {
-        return _health > 0;
-    }
-    
+    public bool IsAlive => _health > 0;
+
     public void TakeDamage(int amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);

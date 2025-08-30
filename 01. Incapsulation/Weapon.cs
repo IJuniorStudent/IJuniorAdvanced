@@ -18,7 +18,8 @@ public class Weapon
     
     public void Fire(IDamageable damageable)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(_bullets, nameof(_bullets));
+        if (_bullets <= 0)
+            throw new InvalidOperationException($"{nameof(_bullets)} less or equal to zero: {_bullets}");
         
         damageable.TakeDamage(_damage);
         _bullets--;
