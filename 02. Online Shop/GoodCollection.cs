@@ -9,6 +9,9 @@ public class GoodCollection
         _containers = new Dictionary<string, GoodContainer>();
     }
     
+    public IReadOnlyList<IReadOnlyGoodContainer> Goods => _containers.Values.ToList();
+    public int Count => _containers.Count;
+    
     public void Add(GoodContainer container)
     {
         if (_containers.TryGetValue(container.Good.Id, out GoodContainer? selfContainer))
@@ -32,17 +35,14 @@ public class GoodCollection
         _containers.Clear();
     }
     
-    public void ForEach(Action<GoodContainer> action)
-    {
-        ArgumentNullException.ThrowIfNull(action, nameof(action));
-        
-        foreach (GoodContainer container in _containers.Values)
-            action(container);
-    }
-    
     public void Print(IPrinter printer)
     {
         foreach (GoodContainer container in _containers.Values)
             printer.Print($"{container.Good.Name} - {container.Amount}");
+    }
+    
+    public int GetGoodAmount(Good good)
+    {
+        return _containers.TryGetValue(good.Id, out GoodContainer? container) ? container.Amount : 0;
     }
 }

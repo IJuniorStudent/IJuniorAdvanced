@@ -3,12 +3,12 @@
 public class Shop
 {
     private readonly Warehouse _warehouse;
-    private readonly InvoiceGenerator _generator;
+    private readonly WebInvoiceGenerator _generator;
     
     public Shop(Warehouse warehouse)
     {
         _warehouse = warehouse;
-        _generator = new InvoiceGenerator();
+        _generator = new WebInvoiceGenerator();
     }
     
     public Cart Cart()

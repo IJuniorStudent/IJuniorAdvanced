@@ -1,6 +1,6 @@
 ﻿namespace OnlineShop;
 
-public class GoodContainer
+public class GoodContainer : IReadOnlyGoodContainer
 {
     private readonly Good _good;
     private int _amount;

@@ -1,6 +1,6 @@
 ﻿namespace OnlineShop;
 
-public class InvoiceGenerator
+public class WebInvoiceGenerator : IInvoiceGenerator
 {
     private int _invoiceNumber = 1;
     

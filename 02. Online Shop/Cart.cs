@@ -1,44 +1,44 @@
 ﻿namespace OnlineShop;
 
-public class Cart : IDisposable
+public class Cart
 {
-    private readonly Warehouse _warehouse;
-    private readonly InvoiceGenerator _generator;
-    private readonly GoodCollection _goods;
+    private readonly IGoodsProvider _goodsProvider;
+    private readonly IInvoiceGenerator _invoiceGenerator;
+    private readonly GoodCollection _goodsCollection;
     
-    public Cart(Warehouse warehouse, InvoiceGenerator generator)
+    public Cart(IGoodsProvider goodsProvider, IInvoiceGenerator invoiceGenerator)
     {
-        _warehouse = warehouse;
-        _generator = generator;
-        _goods = new GoodCollection();
+        _goodsProvider = goodsProvider;
+        _invoiceGenerator = invoiceGenerator;
+        _goodsCollection = new GoodCollection();
     }
     
     public void Add(Good good, int amount)
     {
-        _warehouse.Take(good, amount);
-        _goods.Add(new GoodContainer(good, amount));
+        ArgumentOutOfRangeException.ThrowIfNegative(amount, nameof(amount));
+        
+        int goodsAmountLeft = _goodsProvider.GetGoodAmount(good) - _goodsCollection.GetGoodAmount(good);
+        
+        if (amount > goodsAmountLeft)
+            throw new InvalidOperationException($"Trying to take {amount} \"{good.Name}\" of maximum {goodsAmountLeft}");
+        
+        _goodsCollection.Add(new GoodContainer(good, amount));
     }
     
     public Invoice Order()
     {
-        _goods.Clear();
-        return _generator.Create();
-    }
-    
-    public void Dispose()
-    {
-        _goods.ForEach((container) =>
-        {
-            _goods.Take(container.Good, container.Amount);
-            _warehouse.Delive(container.Good, container.Amount);
-        });
+        if (_goodsCollection.Count == 0)
+            throw new InvalidOperationException("Cart is empty");
         
-        _goods.Clear();
+        _goodsProvider.Take(_goodsCollection.Goods);
+        _goodsCollection.Clear();
+        
+        return _invoiceGenerator.Create();
     }
     
     public void Print(IPrinter printer)
     {
         printer.Print("Товары в корзине:");
-        _goods.Print(printer);
+        _goodsCollection.Print(printer);
     }
 }
