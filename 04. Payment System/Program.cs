@@ -10,29 +10,14 @@ class Program
         int orderId = 1;
         int orderAmount = 12_000;
         string privateSignKey = "private sign key";
-        string defaultCurrency = "RUB";
         
         var order = new Order(orderId, orderAmount);
         
         PaymentSystem[] paymentSystems =
         [
-            new (
-                "pay.system1.ru/order",
-                defaultCurrency,
-                new PaymentQueryBuilder1(new OrderIdRetriever(), MD5.Create())
-            ),
-            
-            new (
-                "order.system2.ru/pay", 
-                defaultCurrency,
-                new PaymentQueryBuilder2(new OrderIdAmountRetriever(), MD5.Create())
-            ),
-            
-            new (
-                "system3.com/pay", 
-                defaultCurrency,
-                new PaymentQueryBuilder3(new SecuredOrderRetriever(new OrderIdAmountRetriever(), privateSignKey), SHA1.Create())
-            ),
+            new PaymentSystem1(),
+            new PaymentSystem2(),
+            new PaymentSystem3(privateSignKey)
         ];
         
         foreach (var paymentSystem in paymentSystems)
@@ -44,8 +29,12 @@ public class Order
 {
     public readonly int Id;
     public readonly int Amount;
-
-    public Order(int id, int amount) => (Id, Amount) = (id, amount);
+    
+    public Order(int id, int amount)
+    {
+        Id = id;
+        Amount = amount;
+    }
 }
 
 public interface IOrderDataRetriever
@@ -55,14 +44,14 @@ public interface IOrderDataRetriever
 
 public class OrderIdRetriever : IOrderDataRetriever
 {
-    public string Get(Order order)
-        => order.Id.ToString();
+    public string Get(Order order) =>
+        order.Id.ToString();
 }
 
 public class OrderIdAmountRetriever : IOrderDataRetriever
 {
-    public string Get(Order order)
-        => $"{order.Id}{order.Amount}";
+    public string Get(Order order) =>
+        $"{order.Id}{order.Amount}";
 }
 
 public class SecuredOrderRetriever : IOrderDataRetriever
@@ -76,66 +65,30 @@ public class SecuredOrderRetriever : IOrderDataRetriever
         _privateKey = privateKey;
     }
     
-    public string Get(Order order)
-    {
-        return $"{_orderDataRetriever.Get(order)}{_privateKey}";
-    }
+    public string Get(Order order) =>
+        $"{_orderDataRetriever.Get(order)}{_privateKey}";
 }
 
-public static class HashAlgorithmExtension
+public interface IHashCalculator
 {
-    public static string ComputeHash(this HashAlgorithm hasher, string input)
-    {
-        byte[] binaryData = Encoding.UTF8.GetBytes(input);
-        byte[] hash = hasher.ComputeHash(binaryData);
-        
-        return Convert.ToHexString(hash);
-    }
+    public string Calculate(string input);
 }
 
-public abstract class PaymentQueryBuilder
+public class HashCalculator : IHashCalculator
 {
-    private readonly IOrderDataRetriever _orderDataRetriever;
     private readonly HashAlgorithm _hashAlgorithm;
     
-    protected PaymentQueryBuilder(IOrderDataRetriever orderDataRetriever, HashAlgorithm hashAlgorithm)
+    public HashCalculator(HashAlgorithm hashAlgorithm)
     {
-        _orderDataRetriever = orderDataRetriever;
         _hashAlgorithm = hashAlgorithm;
     }
     
-    public abstract string Build(Order order, string currency);
-    
-    protected string CalculateOrderHash(Order order)
+    public string Calculate(string input)
     {
-        return _hashAlgorithm.ComputeHash(_orderDataRetriever.Get(order));
-    }
-}
-
-public class PaymentQueryBuilder1(IOrderDataRetriever orderDataRetriever, HashAlgorithm hashAlgorithm)
-    : PaymentQueryBuilder(orderDataRetriever, hashAlgorithm)
-{
-    public override string Build(Order order, string currency)
-    {
-        return $"amount={order.Amount}{currency}&hash={CalculateOrderHash(order)}";
-    }
-}
-
-public class PaymentQueryBuilder2(IOrderDataRetriever orderDataRetriever, HashAlgorithm hashAlgorithm)
-    : PaymentQueryBuilder(orderDataRetriever, hashAlgorithm)
-{
-    public override string Build(Order order, string currency)
-    {
-        return $"hash={CalculateOrderHash(order)}";
-    }
-}
-
-public class PaymentQueryBuilder3(IOrderDataRetriever orderDataRetriever, HashAlgorithm hashAlgorithm)
-    : PaymentQueryBuilder(orderDataRetriever, hashAlgorithm)
-{
-    public override string Build(Order order, string currency)
-    {
-        return $"amount={order.Amount}&currency={currency}&hash={CalculateOrderHash(order)}";
+        byte[] binaryData = Encoding.UTF8.GetBytes(input);
+        byte[] hash = _hashAlgorithm.ComputeHash(binaryData);
+        
+        return Convert.ToHexString(hash);
     }
 }
 
@@ -144,21 +97,57 @@ public interface IPaymentSystem
     public string GetPayingLink(Order order);
 }
 
-public class PaymentSystem : IPaymentSystem
+public abstract class PaymentSystem : IPaymentSystem
 {
-    private readonly PaymentQueryBuilder _queryBuilder;
     private readonly string _paymentGateway;
     private readonly string _currency;
+    private readonly IOrderDataRetriever _dataRetriever;
+    private readonly IHashCalculator _hasher;
     
-    public PaymentSystem(string paymentGateway, string currency, PaymentQueryBuilder queryBuilder)
+    protected PaymentSystem(string paymentGateway, string currency, IOrderDataRetriever dataRetriever, IHashCalculator hasher)
     {
         _paymentGateway = paymentGateway;
-        _queryBuilder = queryBuilder;
         _currency = currency;
+        _dataRetriever = dataRetriever;
+        _hasher = hasher;
     }
     
     public string GetPayingLink(Order order)
     {
-        return $"{_paymentGateway}?{_queryBuilder.Build(order, _currency)}";
+        return $"{_paymentGateway}?{BuildQueryString(order, _currency)}";
+    }
+    
+    protected abstract string BuildQueryString(Order order, string currency);
+    
+    protected string CalculateHash(Order order)
+    {
+        return _hasher.Calculate(_dataRetriever.Get(order));
+    }
+}
+
+public class PaymentSystem1()
+    : PaymentSystem("pay.system1.ru/order", "RUB", new OrderIdRetriever(), new HashCalculator(MD5.Create()))
+{
+    protected override string BuildQueryString(Order order, string currency)
+    {
+        return $"amount={order.Amount}{currency}&hash={CalculateHash(order)}";
+    }
+}
+
+public class PaymentSystem2()
+    : PaymentSystem("order.system2.ru/pay", "RUB", new OrderIdAmountRetriever(), new HashCalculator(MD5.Create()))
+{
+    protected override string BuildQueryString(Order order, string currency)
+    {
+        return $"hash={CalculateHash(order)}";
+    }
+}
+
+public class PaymentSystem3(string privateSignKey)
+    : PaymentSystem("system3.com/pay", "RUB", new SecuredOrderRetriever(new OrderIdAmountRetriever(), privateSignKey), new HashCalculator(SHA1.Create()))
+{
+    protected override string BuildQueryString(Order order, string currency)
+    {
+        return $"amount={order.Amount}&currency={currency}&hash={CalculateHash(order)}";
     }
 }
