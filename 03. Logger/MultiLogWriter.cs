@@ -6,8 +6,12 @@ public class MultiLogWriter : ILogWriter
     
     public MultiLogWriter(params ILogWriter[] logWriters)
     {
-        if (logWriters.Length == 0)
+        if (logWriters == null || logWriters.Length == 0)
             throw new ArgumentException("LogWriters must have at least one logWriter");
+        
+        for (int i = 0; i < logWriters.Length; i++)
+            if (logWriters[i] == null)
+                throw new ArgumentException($"LogWriter at index {i} is null");
         
         _logWriters = logWriters;
     }

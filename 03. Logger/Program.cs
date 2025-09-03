@@ -4,18 +4,20 @@ class Program
 {
     static void Main(string[] args)
     {
+        const DayOfWeek logWriteDay = DayOfWeek.Friday;
+        
         ILogWriter fileLogWriter = new FileLogWriter();
         ILogWriter consoleLogWriter = new ConsoleLogWriter();
-        ILogWriter fridayFileLogWriter = new FridayLogWriter(fileLogWriter);
-        ILogWriter fridayConsoleLogWriter = new FridayLogWriter(consoleLogWriter);
-        ILogWriter multiLogWriter = new MultiLogWriter(consoleLogWriter, fridayFileLogWriter);
+        ILogWriter weeklyFileLogWriter = new WeeklyLogWriter(fileLogWriter, logWriteDay);
+        ILogWriter weeklyConsoleLogWriter = new WeeklyLogWriter(consoleLogWriter, logWriteDay);
+        ILogWriter multiLogWriter = new MultiLogWriter(consoleLogWriter, weeklyFileLogWriter);
         
         PathFinder[] pathFinders =
         [
             new (fileLogWriter),
             new (consoleLogWriter),
-            new (fridayFileLogWriter),
-            new (fridayConsoleLogWriter),
+            new (weeklyFileLogWriter),
+            new (weeklyConsoleLogWriter),
             new (multiLogWriter)
         ];
         
