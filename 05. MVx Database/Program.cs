@@ -32,7 +32,7 @@ public class Passport
         string passportId = id.Trim();
         
         if (passportId == EmptyString)
-            throw new ArgumentException("Empty id");
+            throw new ArgumentException("Empty passport id");
         
         Id = passportId.Replace(WhiteSpace, EmptyString);
         
@@ -92,17 +92,23 @@ public class ConsolePresenter : IPresenter
     
     public void DisplayCitizenInfo()
     {
-        var passport = new Passport(_view.RequestPassportId());
-        
-        if (_processor.TryGetCitizen(passport, out Citizen? citizen) == false)
+        try
         {
-            _view.DisplayMessage($"Данные по паспорту \"{passport.Id}\" не найдены");
-            return;
+            var passport = new Passport(_view.RequestPassportId());
+            
+            if (_processor.TryGetCitizen(passport, out Citizen? citizen) == false)
+            {
+                _view.DisplayMessage($"Данные по паспорту \"{passport.Id}\" не найдены");
+                return;
+            }
+            
+            string accessResult = citizen!.HasVoteAccess ? "ПРЕДОСТАВЛЕН" : "НЕ ПРЕДОСТАВЛЯЛСЯ";
+            _view.DisplayMessage($"По паспорту \"{citizen.Passport.Id}\" доступ к бюллетеню на дистанционном электронном голосовании {accessResult}");
         }
-        
-        string accessResult = citizen!.HasVoteAccess ? "ПРЕДОСТАВЛЕН" : "НЕ ПРЕДОСТАВЛЯЛСЯ";
-        
-        _view.DisplayMessage($"По паспорту \"{citizen.Passport.Id}\" доступ к бюллетеню на дистанционном электронном голосовании {accessResult}");
+        catch (ArgumentException e)
+        {
+            _view.DisplayMessage($"Failed to display citizen: {e.Message}");
+        }
     }
 }
 
