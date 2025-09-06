@@ -4,94 +4,73 @@ class Program
 {
     static void Main(string[] args)
     {
-        var paymentSystemFactory = new PaymentSystemFactory();
+        var paymentSystems = new PaymentSystemFactoryStorage();
         var consoleView = new ConsolePaymentView();
-        var paymentForm = new PaymentForm(consoleView, paymentSystemFactory.Create());
+        var paymentForm = new PaymentForm(consoleView);
         
-        paymentForm.Show();
-        paymentForm.Pay();
+        if (paymentForm.TryGetPaymentMethod(paymentSystems.Options, out string paymentMethod) == false)
+        {
+            consoleView.DisplayMessage($"Система \"{paymentMethod}\" не найдена");
+            return;
+        }
+        
+        var handler = new PaymentHandler(paymentSystems.GetFactory(paymentMethod));
+        
+        handler.Pay(consoleView);
     }
 }
 
 public interface IPaymentForm
 {
-    void Show();
-    void Pay();
+    public bool TryGetPaymentMethod(List<string> methodNames, out string paymentMethod);
 }
 
 public class PaymentForm : IPaymentForm
 {
     private IPaymentView _view;
-    private List<IPaymentSystem> _systems;
     
-    public PaymentForm(IPaymentView view, List<IPaymentSystem> systems)
+    public PaymentForm(IPaymentView view)
     {
         _view = view;
-        _systems = systems;
     }
     
-    public void Show()
+    public bool TryGetPaymentMethod(List<string> methodNames, out string paymentMethod)
     {
-        _view.DisplayMessage($"Мы принимаем: {GetPaymentOptions()}");
+        string availableMethods = string.Join(", ", methodNames);
+        
+        _view.DisplayMessage($"Мы принимаем: {availableMethods}");
         _view.DisplayMessage("Какое системой вы хотите совершить оплату?");
+        
+        paymentMethod = _view.RequestUserInput();
+        
+        return methodNames.Contains(paymentMethod);
+    }
+}
+
+public class PaymentHandler
+{
+    private IPaymentSystem _system;
+    
+    public PaymentHandler(PaymentSystemFactory factory)
+    {
+        _system = factory.Create();
     }
     
-    public void Pay()
+    public void Pay(IPaymentView paymentView)
     {
-        string option = _view.RequestUserInput();
-        
-        if (TryGetPaymentSystem(option, out IPaymentSystem? paymentSystem) == false)
-        {
-            _view.DisplayMessage($"Система оплаты \"{option}\" не найдена");
-            return;
-        }
-        
-        paymentSystem!.Initialize(_view);
-        
-        _view.DisplayMessage(paymentSystem.Pay(_view) ? "Оплата прошла успешно!" : "Что-то пошло не так");
-    }
-    
-    private string GetPaymentOptions()
-    {
-        var options = new List<string>();
-        
-        foreach (IPaymentSystem system in _systems)
-            options.Add(system.Name);
-        
-        return string.Join(", ", options);
-    }
-    
-    private bool TryGetPaymentSystem(string name, out IPaymentSystem? foundSystem)
-    {
-        foundSystem = null;
-        
-        foreach (IPaymentSystem system in _systems)
-        {
-            if (system.Name != name)
-                continue;
-            
-            foundSystem = system;
-            return true;
-        }
-        
-        return false;
+        _system.Initialize(paymentView);
+        paymentView.DisplayMessage(_system.Pay(paymentView) ? "Оплата прошла успешно!" : "Что-то пошло не так");
     }
 }
 
 public interface IPaymentView
 {
-    void DisplayHeader(string header);
     void DisplayMessage(string message);
     string RequestUserInput();
 }
 
 public class ConsolePaymentView : IPaymentView
 {
-    public void DisplayHeader(string header)
-    {
-        Console.WriteLine($"=== {header} ===");
-    }
-
     public void DisplayMessage(string message)
     {
         Console.WriteLine(message);
@@ -110,11 +89,11 @@ public interface IPaymentSystem
     public bool Pay(IPaymentView paymentView);
 }
 
-public abstract class PaymentSystem : IPaymentSystem
+public class PaymentSystem : IPaymentSystem
 {
     private string _requestMessage;
     
-    protected PaymentSystem(string name, string requestMessage)
+    public PaymentSystem(string name, string requestMessage)
     {
         Name = name;
         _requestMessage = requestMessage;
@@ -140,47 +119,45 @@ public abstract class PaymentSystem : IPaymentSystem
     }
 }
 
-public abstract class WebPaymentSystem : PaymentSystem
-{
-    protected WebPaymentSystem(string name) : base(name, "Перевод на страницу") { }
-}
-
-public abstract class ApiPaymentSystem : PaymentSystem
-{
-    protected ApiPaymentSystem(string name) : base(name, "Вызов API") { }
-}
-
-public abstract class BankPaymentSystem : PaymentSystem
-{
-    protected BankPaymentSystem(string name) : base(name, "Вызов API банка эмиттера карты") { }
-}
-
-public class QiwiPaymentSystem : WebPaymentSystem
-{
-    public QiwiPaymentSystem() : base("QIWI") { }
-}
-
-public class WebMoneyPaymentSystem : ApiPaymentSystem
-{
-    public WebMoneyPaymentSystem() : base("WebMoney") { }
-}
-
-public class CardPaymentSystem : BankPaymentSystem
-{
-    public CardPaymentSystem() : base("Card") { }
-}
-
 public class PaymentSystemFactory
 {
-    public List<IPaymentSystem> Create()
+    private string _name;
+    private string _requestMessage;
+    
+    public PaymentSystemFactory(string name, string requestMessage)
     {
-        List<IPaymentSystem> systems =
-        [
-            new QiwiPaymentSystem(),
-            new WebMoneyPaymentSystem(),
-            new CardPaymentSystem()
-        ];
+        _name = name;
+        _requestMessage = requestMessage;
+    }
+    
+    public IPaymentSystem Create()
+    {
+        return new PaymentSystem(_name, _requestMessage);
+    }
+}
+
+public class PaymentSystemFactoryStorage
+{
+    private Dictionary<string, PaymentSystemFactory> _systems;
+    
+    public PaymentSystemFactoryStorage()
+    {
+        _systems = new Dictionary<string, PaymentSystemFactory>();
         
-        return systems;
+        AppendPaymentSystemFactory("QIWI", "Перевод на страницу");
+        AppendPaymentSystemFactory("WebMoney", "Вызов API");
+        AppendPaymentSystemFactory("Card", "Вызов API банка эмиттера карты");
+    }
+    
+    public List<string> Options => _systems.Keys.ToList();
+    
+    public PaymentSystemFactory GetFactory(string name)
+    {
+        return _systems[name];
+    }
+    
+    private void AppendPaymentSystemFactory(string systemName, string systemRequestMessage)
+    {
+        _systems.Add(systemName, new PaymentSystemFactory(systemName, systemRequestMessage));
     }
 }
