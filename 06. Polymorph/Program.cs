@@ -51,7 +51,7 @@ public class PaymentHandler
 {
     private IPaymentSystem _system;
     
-    public PaymentHandler(PaymentSystemFactory factory)
+    public PaymentHandler(IPaymentSystemFactory factory)
     {
         _system = factory.Create();
     }
@@ -119,16 +119,24 @@ public class PaymentSystem : IPaymentSystem
     }
 }
 
-public class PaymentSystemFactory
+public interface IPaymentSystemFactory
+{
+    public string Name { get; }
+    public IPaymentSystem Create();
+}
+
+public abstract class PaymentSystemFactory : IPaymentSystemFactory
 {
     private string _name;
     private string _requestMessage;
     
-    public PaymentSystemFactory(string name, string requestMessage)
+    protected PaymentSystemFactory(string name, string requestMessage)
     {
         _name = name;
         _requestMessage = requestMessage;
     }
+    
+    public string Name => _name;
     
     public IPaymentSystem Create()
     {
@@ -136,28 +144,43 @@ public class PaymentSystemFactory
     }
 }
 
+public class QiwiFactory : PaymentSystemFactory
+{
+    public QiwiFactory() : base("QIWI", "Перевод на страницу") { }
+}
+
+public class WebMoneyFactory : PaymentSystemFactory
+{
+    public WebMoneyFactory() : base("WebMoney", "Вызов API") { }
+}
+
+public class CardFactory : PaymentSystemFactory
+{
+    public CardFactory() : base("Card", "Вызов API банка эмиттера карты") { }
+}
+
 public class PaymentSystemFactoryStorage
 {
-    private Dictionary<string, PaymentSystemFactory> _systems;
+    private Dictionary<string, IPaymentSystemFactory> _systems;
     
     public PaymentSystemFactoryStorage()
     {
-        _systems = new Dictionary<string, PaymentSystemFactory>();
+        _systems = new Dictionary<string, IPaymentSystemFactory>();
         
-        AppendPaymentSystemFactory("QIWI", "Перевод на страницу");
-        AppendPaymentSystemFactory("WebMoney", "Вызов API");
-        AppendPaymentSystemFactory("Card", "Вызов API банка эмиттера карты");
+        AppendFactory(new QiwiFactory());
+        AppendFactory(new WebMoneyFactory());
+        AppendFactory(new CardFactory());
     }
     
     public List<string> Options => _systems.Keys.ToList();
     
-    public PaymentSystemFactory GetFactory(string name)
+    public IPaymentSystemFactory GetFactory(string name)
     {
         return _systems[name];
     }
     
-    private void AppendPaymentSystemFactory(string systemName, string systemRequestMessage)
+    private void AppendFactory(IPaymentSystemFactory factory)
     {
-        _systems.Add(systemName, new PaymentSystemFactory(systemName, systemRequestMessage));
+        _systems.Add(factory.Name, factory);
     }
 }
